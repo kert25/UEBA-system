@@ -1,0 +1,1 @@
+"""Log ingestor service package."""
