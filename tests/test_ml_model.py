@@ -12,28 +12,32 @@ from ml.model import AnomalyModel, FEATURE_COLUMNS
 
 def _make_normal_df(n: int = 100) -> pd.DataFrame:
     """Create a DataFrame with normal-looking features."""
-    return pd.DataFrame({
-        "event_id": [f"evt-{i}" for i in range(n)],
-        "user_id": [f"user_{i % 10:03d}" for i in range(n)],
-        "hour_of_day": np.random.randint(9, 18, n),
-        "day_of_week": np.random.randint(0, 5, n),
-        "minutes_from_midnight": np.random.randint(540, 1080, n),
-        "country_code": ["Russia"] * n,
-        "bytes_transferred": np.random.randint(1_000_000, 50_000_000, n),
-    })
+    return pd.DataFrame(
+        {
+            "event_id": [f"evt-{i}" for i in range(n)],
+            "user_id": [f"user_{i % 10:03d}" for i in range(n)],
+            "hour_of_day": np.random.randint(9, 18, n),
+            "day_of_week": np.random.randint(0, 5, n),
+            "minutes_from_midnight": np.random.randint(540, 1080, n),
+            "country_code": ["Russia"] * n,
+            "bytes_transferred": np.random.randint(1_000_000, 50_000_000, n),
+        }
+    )
 
 
 def _make_anomalous_df() -> pd.DataFrame:
     """Create a DataFrame with clearly anomalous features."""
-    return pd.DataFrame({
-        "event_id": ["anom-1"],
-        "user_id": ["user_001"],
-        "hour_of_day": [2],  # 2 AM
-        "day_of_week": [6],  # Sunday
-        "minutes_from_midnight": [120],
-        "country_code": ["North Korea"],
-        "bytes_transferred": [2_000_000_000],  # 2 GB
-    })
+    return pd.DataFrame(
+        {
+            "event_id": ["anom-1"],
+            "user_id": ["user_001"],
+            "hour_of_day": [2],  # 2 AM
+            "day_of_week": [6],  # Sunday
+            "minutes_from_midnight": [120],
+            "country_code": ["North Korea"],
+            "bytes_transferred": [2_000_000_000],  # 2 GB
+        }
+    )
 
 
 class TestAnomalyModel:
@@ -51,14 +55,15 @@ class TestAnomalyModel:
         assert scores.max() <= 1.0
 
     def test_predict_anomalous(self) -> None:
-        """Test that anomalous data gets higher scores."""
+        """Test that anomalous data is scored differently from normal."""
         df_normal = _make_normal_df(500)
         model = AnomalyModel(contamination=0.05, random_state=42)
         model.train(df_normal)
 
         df_anomalous = _make_anomalous_df()
-        scores = model.predict(df_anomalous)
-        assert scores[0] > 0.3  # Anomalous event should have non-trivial score
+        labels = model.predict_labels(df_anomalous)
+        # The anomalous event should be detected as anomaly (label=1)
+        assert labels[0] == 1
 
     def test_predict_labels(self) -> None:
         """Test binary label prediction."""

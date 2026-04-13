@@ -50,7 +50,6 @@ class AnomalyModel:
             n_estimators=self.n_estimators,
             contamination=self.contamination,
             random_state=self.random_state,
-            behaviour="new",
         )
         self._is_fitted = False
 

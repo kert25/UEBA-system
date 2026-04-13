@@ -38,18 +38,18 @@ class TestParseJsonEvents:
         assert len(events) == 5
 
     def test_parse_invalid_action_type(self) -> None:
-        """Test that invalid action_type is rejected."""
+        """Test that invalid action_type raises ValueError."""
         bad = _make_raw_event()
         bad["action_type"] = "hack"
-        events = parse_json_events([bad])
-        assert len(events) == 0  # Should be filtered out
+        with pytest.raises(ValueError, match="action_type"):
+            parse_json_events([bad])
 
     def test_parse_missing_required_field(self) -> None:
-        """Test that missing required fields cause rejection."""
+        """Test that missing required fields raise ValueError."""
         bad = _make_raw_event()
         del bad["user_id"]
-        events = parse_json_events([bad])
-        assert len(events) == 0
+        with pytest.raises(ValueError, match="user_id"):
+            parse_json_events([bad])
 
     def test_parse_empty_list(self) -> None:
         """Test parsing empty list."""
