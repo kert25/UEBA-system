@@ -107,3 +107,7 @@ models/*.pkl
 # Data (synthetic logs can be regenerated)
 data/*.json
 data/*.csv
+
+# Coursework documents (should stay outside the repo)
+*.pdf
+PROMPT_*.md
