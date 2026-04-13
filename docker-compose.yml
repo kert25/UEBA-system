@@ -1,0 +1,123 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: ueba-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: ueba-kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+
+  log-ingestor:
+    build:
+      context: .
+      dockerfile: services/log_ingestor/Dockerfile
+    container_name: ueba-log-ingestor
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+    ports:
+      - "8001:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: ["uvicorn", "services.log_ingestor.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./services/log_ingestor:/app/services/log_ingestor
+      - ./shared:/app/shared
+
+  feature-extractor:
+    build:
+      context: .
+      dockerfile: services/feature_extractor/Dockerfile
+    container_name: ueba-feature-extractor
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+    ports:
+      - "8002:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: ["uvicorn", "services.feature_extractor.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./services/feature_extractor:/app/services/feature_extractor
+      - ./shared:/app/shared
+
+  profile-builder:
+    build:
+      context: .
+      dockerfile: services/profile_builder/Dockerfile
+    container_name: ueba-profile-builder
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+    ports:
+      - "8003:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: ["uvicorn", "services.profile_builder.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./services/profile_builder:/app/services/profile_builder
+      - ./shared:/app/shared
+
+  anomaly-detector:
+    build:
+      context: .
+      dockerfile: services/anomaly_detector/Dockerfile
+    container_name: ueba-anomaly-detector
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+    ports:
+      - "8004:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: ["uvicorn", "services.anomaly_detector.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./services/anomaly_detector:/app/services/anomaly_detector
+      - ./shared:/app/shared
+      - ./ml:/app/ml
+      - ./models:/app/models
+
+  alerting:
+    build:
+      context: .
+      dockerfile: services/alerting/Dockerfile
+    container_name: ueba-alerting
+    environment:
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
+    ports:
+      - "8005:8000"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    command: ["uvicorn", "services.alerting.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./services/alerting:/app/services/alerting
+      - ./shared:/app/shared
+
+volumes:
+  es-data:

@@ -1,0 +1,20 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.0
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: ["-r", "."]
+        exclude: "tests/|scripts/"
+
+  - repo: https://github.com/pyupio/safety
+    rev: v3.2.0
+    hooks:
+      - id: safety
+        args: ["check", "--bare"]
