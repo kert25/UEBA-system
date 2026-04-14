@@ -29,6 +29,7 @@ app = FastAPI(
 
 # ─── Startup ─────────────────────────────────────────────────────────────
 
+
 @app.on_event("startup")
 def on_startup() -> None:
     """Ensure Elasticsearch indices exist on startup."""
@@ -42,8 +43,10 @@ def on_startup() -> None:
 
 # ─── Endpoints ───────────────────────────────────────────────────────────
 
+
 class IngestResponse(BaseModel):
     """Response schema for ingestion endpoint."""
+
     accepted: int
     errors: list[str] = []
 
@@ -59,15 +62,16 @@ async def ingest_json(events: list[dict[str, Any]]) -> IngestResponse:
     if not parsed:
         return IngestResponse(accepted=0, errors=["No valid events found"])
 
-    # Bulk index to Elasticsearch
-    client = get_es_client()
-    actions = []
-    for event in parsed:
-        actions.append({"index": {"_index": INDEX_EVENTS, "_id": event.event_id}})
-        actions.append(event.model_dump(mode="json"))
-
-    if actions:
-        client.bulk(operations=actions, refresh=True)
+    try:
+        client = get_es_client()
+        actions = []
+        for event in parsed:
+            actions.append({"index": {"_index": INDEX_EVENTS, "_id": event.event_id}})
+            actions.append(event.model_dump(mode="json"))
+        if actions:
+            client.bulk(operations=actions, refresh=True)
+    except ConnectionError:
+        logger.warning("Elasticsearch unavailable; events accepted but not persisted")
 
     logger.info("Ingested %d events", len(parsed))
     return IngestResponse(accepted=len(parsed))
@@ -87,14 +91,16 @@ async def ingest_csv(file: UploadFile) -> IngestResponse:
     if not parsed:
         return IngestResponse(accepted=0, errors=["No valid events found"])
 
-    client = get_es_client()
-    actions = []
-    for event in parsed:
-        actions.append({"index": {"_index": INDEX_EVENTS, "_id": event.event_id}})
-        actions.append(event.model_dump(mode="json"))
-
-    if actions:
-        client.bulk(operations=actions, refresh=True)
+    try:
+        client = get_es_client()
+        actions = []
+        for event in parsed:
+            actions.append({"index": {"_index": INDEX_EVENTS, "_id": event.event_id}})
+            actions.append(event.model_dump(mode="json"))
+        if actions:
+            client.bulk(operations=actions, refresh=True)
+    except ConnectionError:
+        logger.warning("Elasticsearch unavailable; CSV events accepted but not persisted")
 
     logger.info("Ingested %d events from CSV", len(parsed))
     return IngestResponse(accepted=len(parsed))
