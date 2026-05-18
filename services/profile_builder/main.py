@@ -11,13 +11,13 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 
-from shared.es_client import ensure_indices, get_es_client
-from shared.es_client import INDEX_FEATURES, INDEX_PROFILES
+from services.profile_builder.builder import build_profiles_from_features
+from shared.es_client import INDEX_FEATURES, INDEX_PROFILES, ensure_indices, get_es_client
+from shared.es_health import is_es_available
 from shared.models import UserProfile
-from services.profile_builder.builder import build_profiles_from_features, profiles_to_df
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +42,15 @@ class BuildResponse(BaseModel):
 
 
 @app.post("/build")
-async def build_profiles(features: list[dict]) -> BuildResponse:
+async def build_profiles(features: list[dict]) -> BuildResponse | dict:
     """Build user profiles from provided feature records."""
-    import pandas as pd
-
     if not features:
         return BuildResponse(profiles_built=0)
+
+    if not is_es_available():
+        return {"error": "Elasticsearch unavailable", "status": "degraded"}
+
+    import pandas as pd
 
     df = pd.DataFrame(features)
     profiles = build_profiles_from_features(df)
@@ -65,8 +68,11 @@ async def build_profiles(features: list[dict]) -> BuildResponse:
 
 
 @app.post("/build/all")
-async def build_all_profiles() -> BuildResponse:
+async def build_all_profiles() -> BuildResponse | dict:
     """Build profiles from all features currently in Elasticsearch."""
+    if not is_es_available():
+        return {"error": "Elasticsearch unavailable", "status": "degraded"}
+
     import pandas as pd
 
     client = get_es_client()
@@ -102,6 +108,9 @@ async def build_all_profiles() -> BuildResponse:
 @app.get("/profile/{user_id}")
 async def get_profile(user_id: str) -> UserProfile | dict:
     """Get the behavior profile for a specific user."""
+    if not is_es_available():
+        return {"error": "Elasticsearch unavailable", "status": "degraded"}
+
     client = get_es_client()
     try:
         result = client.get(index=INDEX_PROFILES, id=user_id)
@@ -112,8 +121,7 @@ async def get_profile(user_id: str) -> UserProfile | dict:
 
 @app.get("/health")
 async def health() -> dict:
-    try:
-        client = get_es_client()
-        return {"status": "healthy" if client.ping() else "degraded"}
-    except ConnectionError:
-        return {"status": "degraded", "elasticsearch": "unavailable"}
+    return {
+        "status": "healthy" if is_es_available() else "degraded",
+        "elasticsearch": "connected" if is_es_available() else "disconnected",
+    }

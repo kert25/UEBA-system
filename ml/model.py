@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
 
 import joblib
 import numpy as np
@@ -151,3 +150,36 @@ class AnomalyModel:
         if missing:
             raise ValueError(f"Missing feature columns: {missing}")
         return df[FEATURE_COLUMNS]
+
+    def get_feature_contributions(self, features_array: np.ndarray) -> dict[str, float]:
+        """Estimate each feature's contribution to the anomaly score.
+
+        Uses a permutation-based approach: replace each feature with its median
+        value and measure the change in score.
+
+        Args:
+            features_array: 1D array of feature values (length = len(FEATURE_COLUMNS)).
+
+        Returns:
+            Dict mapping feature name to normalized contribution (sum ≈ 1.0).
+        """
+        if self.model is None:
+            return {}
+
+        base_score = self.model.score_samples(features_array.reshape(1, -1))[0]
+
+        contributions = {}
+        for i, name in enumerate(FEATURE_COLUMNS):
+            perturbed = features_array.copy()
+            median_val = np.median(
+                self.scaler.data_min_ if hasattr(self.scaler, "data_min_") else 0
+            )
+            perturbed[i] = median_val
+            perturbed_score = self.model.score_samples(perturbed.reshape(1, -1))[0]
+            contributions[name] = abs(perturbed_score - base_score)
+
+        total = sum(contributions.values())
+        if total > 0:
+            contributions = {k: round(v / total, 3) for k, v in contributions.items()}
+
+        return contributions

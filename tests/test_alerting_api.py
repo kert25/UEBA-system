@@ -1,7 +1,5 @@
 """Integration tests for alerting FastAPI endpoints."""
 
-from datetime import datetime, timezone
-
 from fastapi.testclient import TestClient
 
 from services.alerting.main import app

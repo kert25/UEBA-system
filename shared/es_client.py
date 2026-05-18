@@ -16,6 +16,7 @@ INDEX_EVENTS = "events"
 INDEX_FEATURES = "features"
 INDEX_PROFILES = "profiles"
 INDEX_ANOMALIES = "anomalies"
+INDEX_INCIDENTS = "incidents"
 
 # Default index mappings
 MAPPINGS: dict[str, dict[str, Any]] = {
@@ -30,6 +31,8 @@ MAPPINGS: dict[str, dict[str, Any]] = {
             "bytes_transferred": {"type": "long"},
             "action_type": {"type": "keyword"},
             "resource": {"type": "keyword"},
+            "latitude": {"type": "float"},
+            "longitude": {"type": "float"},
         }
     },
     INDEX_FEATURES: {
@@ -42,6 +45,10 @@ MAPPINGS: dict[str, dict[str, Any]] = {
             "country_code": {"type": "keyword"},
             "bytes_transferred": {"type": "long"},
             "is_anomaly": {"type": "boolean"},
+            "latitude": {"type": "float"},
+            "longitude": {"type": "float"},
+            "distance_from_previous_km": {"type": "float"},
+            "hours_since_last_event": {"type": "float"},
         }
     },
     INDEX_PROFILES: {
@@ -57,12 +64,29 @@ MAPPINGS: dict[str, dict[str, Any]] = {
     },
     INDEX_ANOMALIES: {
         "properties": {
+            "anomaly_id": {"type": "keyword"},
             "event_id": {"type": "keyword"},
             "user_id": {"type": "keyword"},
             "anomaly_score": {"type": "float"},
             "timestamp": {"type": "date"},
             "dimensions": {"type": "keyword"},
             "details": {"type": "text"},
+            "feature_contributions": {"type": "object"},
+            "top_features": {"type": "keyword"},
+        }
+    },
+    INDEX_INCIDENTS: {
+        "properties": {
+            "incident_id": {"type": "keyword"},
+            "user_ids": {"type": "keyword"},
+            "anomaly_count": {"type": "integer"},
+            "severity": {"type": "keyword"},
+            "window_minutes": {"type": "integer"},
+            "first_seen": {"type": "date"},
+            "last_seen": {"type": "date"},
+            "anomaly_ids": {"type": "keyword"},
+            "top_dimensions": {"type": "keyword"},
+            "description": {"type": "text"},
         }
     },
 }
@@ -96,7 +120,10 @@ def ensure_indices(client: Elasticsearch | None = None) -> None:
 
     for index_name, mapping in MAPPINGS.items():
         if not client.indices.exists(index=index_name):
-            client.indices.create(index=index_name, mappings=mapping)
-            logger.info("Created index: %s", index_name)
+            try:
+                client.indices.create(index=index_name, mappings=mapping)
+                logger.info("Created index: %s", index_name)
+            except Exception:
+                logger.debug("Index already exists or creation failed: %s", index_name)
         else:
             logger.debug("Index already exists: %s", index_name)

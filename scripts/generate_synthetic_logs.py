@@ -13,7 +13,7 @@ from __future__ import annotations
 import csv
 import json
 import random
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -52,8 +52,16 @@ NORMAL_CITIES = {
 }
 
 ANOMALOUS_COUNTRIES = [
-    "United States", "China", "Brazil", "Australia", "Nigeria",
-    "North Korea", "Iran", "Germany", "United Kingdom", "Japan",
+    "United States",
+    "China",
+    "Brazil",
+    "Australia",
+    "Nigeria",
+    "North Korea",
+    "Iran",
+    "Germany",
+    "United Kingdom",
+    "Japan",
 ]
 ANOMALOUS_CITIES = {
     "United States": ["New York", "San Francisco", "Washington"],
@@ -172,7 +180,7 @@ def _anomalous_volume(user_id: str, base_date: datetime) -> dict:
 
 def generate() -> list[dict]:
     """Generate all synthetic events."""
-    base_date = datetime(2026, 3, 1, tzinfo=timezone.utc)
+    base_date = datetime(2026, 3, 1, tzinfo=UTC)
     num_anomalies = int(NUM_EVENTS * ANOMALY_RATIO)
     num_normal = NUM_EVENTS - num_anomalies
 
@@ -221,11 +229,15 @@ def main() -> None:
     print(f"Saved to {OUTPUT_DIR / 'synthetic_logs.json'} and {OUTPUT_DIR / 'synthetic_logs.csv'}")
 
     # Summary
-    anomalous = [e for e in events if e["bytes_transferred"] > 500_000_000
-                 or e["country"] in ANOMALOUS_COUNTRIES
-                 or int(e["timestamp"][11:13]) < 5]
+    anomalous = [
+        e
+        for e in events
+        if e["bytes_transferred"] > 500_000_000
+        or e["country"] in ANOMALOUS_COUNTRIES
+        or int(e["timestamp"][11:13]) < 5
+    ]
     print(f"Total events: {len(events)}")
-    print(f"Anomalous events: {len(anomalous)} ({len(anomalous)/len(events):.1%})")
+    print(f"Anomalous events: {len(anomalous)} ({len(anomalous) / len(events):.1%})")
 
 
 if __name__ == "__main__":

@@ -3,8 +3,8 @@
 import pandas as pd
 
 from services.feature_extractor.extractor import (
-    extract_features_from_events,
     events_to_df,
+    extract_features_from_events,
 )
 
 

@@ -12,15 +12,17 @@ def _make_features_df(users: list[str] | None = None) -> pd.DataFrame:
 
     records = []
     for i, user in enumerate(users):
-        records.append({
-            "event_id": f"evt-{i}",
-            "user_id": user,
-            "hour_of_day": 10 + (i % 8),  # 10-17
-            "day_of_week": i % 5,
-            "minutes_from_midnight": 600 + (i % 8) * 60,
-            "country_code": "Russia",
-            "bytes_transferred": 10_000_000 + i * 1_000_000,
-        })
+        records.append(
+            {
+                "event_id": f"evt-{i}",
+                "user_id": user,
+                "hour_of_day": 10 + (i % 8),  # 10-17
+                "day_of_week": i % 5,
+                "minutes_from_midnight": 600 + (i % 8) * 60,
+                "country_code": "Russia",
+                "bytes_transferred": 10_000_000 + i * 1_000_000,
+            }
+        )
     return pd.DataFrame(records)
 
 
@@ -56,22 +58,21 @@ class TestBuildProfiles:
 
     def test_top_countries(self) -> None:
         """Test top countries list."""
-        users = (
-            ["user_001"] * 5
-            + ["user_001"] * 3
-        )
+        users = ["user_001"] * 5 + ["user_001"] * 3
         records = []
         countries = ["Russia"] * 5 + ["Belarus"] * 3
         for i, country in enumerate(countries):
-            records.append({
-                "event_id": f"evt-{i}",
-                "user_id": "user_001",
-                "hour_of_day": 12,
-                "day_of_week": 1,
-                "minutes_from_midnight": 720,
-                "country_code": country,
-                "bytes_transferred": 10_000_000,
-            })
+            records.append(
+                {
+                    "event_id": f"evt-{i}",
+                    "user_id": "user_001",
+                    "hour_of_day": 12,
+                    "day_of_week": 1,
+                    "minutes_from_midnight": 720,
+                    "country_code": country,
+                    "bytes_transferred": 10_000_000,
+                }
+            )
         df = pd.DataFrame(records)
         profiles = build_profiles_from_features(df)
         assert profiles[0].top_countries[0] == "Russia"
@@ -80,5 +81,6 @@ class TestBuildProfiles:
         """Test that missing columns raise ValueError."""
         bad_df = pd.DataFrame({"user_id": ["user_001"]})
         from pytest import raises
+
         with raises(ValueError, match="Missing columns"):
             build_profiles_from_features(bad_df)

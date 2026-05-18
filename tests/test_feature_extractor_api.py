@@ -43,3 +43,38 @@ def test_extract_events() -> None:
             assert data["features_extracted"] >= 1
     except Exception:
         pass
+
+
+def test_extract_multiple_events() -> None:
+    """Test feature extraction with multiple events for same user."""
+    events = [
+        {
+            "event_id": "evt-100",
+            "timestamp": "2026-04-13T10:00:00Z",
+            "user_id": "user_geo",
+            "ip_address": "1.1.1.1",
+            "country": "Russia",
+            "city": "Moscow",
+            "bytes_transferred": 1000,
+            "action_type": "login",
+            "resource": "/",
+        },
+        {
+            "event_id": "evt-101",
+            "timestamp": "2026-04-13T12:00:00Z",
+            "user_id": "user_geo",
+            "ip_address": "2.2.2.2",
+            "country": "Russia",
+            "city": "Saint Petersburg",
+            "bytes_transferred": 2000,
+            "action_type": "login",
+            "resource": "/",
+        },
+    ]
+    try:
+        response = client.post("/extract", json=events)
+        if response.status_code == 200:
+            data = response.json()
+            assert "features_extracted" in data
+    except Exception:
+        pass

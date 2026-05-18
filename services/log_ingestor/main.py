@@ -14,9 +14,8 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, UploadFile
 from pydantic import BaseModel
 
-from shared.es_client import ensure_indices, get_es_client
-from shared.es_client import INDEX_EVENTS
 from services.log_ingestor.parser import parse_csv_events, parse_json_events
+from shared.es_client import INDEX_EVENTS, ensure_indices, get_es_client
 
 logger = logging.getLogger(__name__)
 

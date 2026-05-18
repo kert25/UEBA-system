@@ -11,12 +11,12 @@ from __future__ import annotations
 import logging
 
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 
-from shared.es_client import ensure_indices, get_es_client
-from shared.es_client import INDEX_FEATURES, INDEX_ANOMALIES
 from services.anomaly_detector.detector import detect_anomalies, load_model
+from shared.es_client import INDEX_ANOMALIES, INDEX_FEATURES, ensure_indices, get_es_client
+from shared.es_health import is_es_available
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,6 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Cache loaded model
 _model = None
 
 
@@ -48,6 +47,7 @@ def on_startup() -> None:
 
 class DetectResponse(BaseModel):
     anomalies_detected: int
+    warning: str | None = None
 
 
 @app.post("/detect")
@@ -61,7 +61,7 @@ async def detect(features: list[dict]) -> DetectResponse:
     df = pd.DataFrame(features)
     anomalies = detect_anomalies(df, model=_model)
 
-    if anomalies:
+    if is_es_available() and anomalies:
         client = get_es_client()
         actions = []
         for a in anomalies:
@@ -69,13 +69,17 @@ async def detect(features: list[dict]) -> DetectResponse:
             actions.append(a.model_dump(mode="json"))
         client.bulk(operations=actions, refresh=True)
 
-    return DetectResponse(anomalies_detected=len(anomalies))
+    warning = None if is_es_available() else "Results not persisted — Elasticsearch unavailable"
+    return DetectResponse(anomalies_detected=len(anomalies), warning=warning)
 
 
 @app.post("/detect/all")
 async def detect_all() -> DetectResponse:
     """Detect anomalies for all features in Elasticsearch."""
     global _model
+
+    if not is_es_available():
+        return DetectResponse(anomalies_detected=0, warning="Elasticsearch unavailable")
 
     client = get_es_client()
 
@@ -108,14 +112,9 @@ async def detect_all() -> DetectResponse:
 
 @app.get("/health")
 async def health() -> dict:
-    try:
-        client = get_es_client()
-        es_ok = client.ping()
-    except ConnectionError:
-        es_ok = False
-
+    es_ok = is_es_available()
     return {
         "status": "healthy" if (es_ok and _model is not None) else "degraded",
         "model_loaded": _model is not None,
-        "elasticsearch": "connected" if es_ok else "unavailable",
+        "elasticsearch": "connected" if es_ok else "disconnected",
     }

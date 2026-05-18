@@ -11,15 +11,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from pydantic import BaseModel
 
-from shared.es_client import ensure_indices, get_es_client
-from shared.es_client import INDEX_EVENTS, INDEX_FEATURES
 from services.feature_extractor.extractor import (
-    events_to_df,
     extract_features_from_events,
 )
+from shared.es_client import INDEX_EVENTS, INDEX_FEATURES, ensure_indices, get_es_client
+from shared.es_health import is_es_available
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +43,14 @@ class ExtractResponse(BaseModel):
 
 
 @app.post("/extract")
-async def extract_events(events: list[dict[str, Any]]) -> ExtractResponse:
+async def extract_events(events: list[dict[str, Any]]) -> ExtractResponse | dict:
     """Extract features from provided events and store in Elasticsearch."""
+    if not events:
+        return ExtractResponse(features_extracted=0)
+
+    if not is_es_available():
+        return {"error": "Elasticsearch unavailable", "status": "degraded"}
+
     features = extract_features_from_events(events)
     if not features:
         return ExtractResponse(features_extracted=0)
@@ -63,11 +68,13 @@ async def extract_events(events: list[dict[str, Any]]) -> ExtractResponse:
 
 
 @app.post("/extract/all")
-async def extract_all_events() -> ExtractResponse:
+async def extract_all_events() -> ExtractResponse | dict:
     """Extract features for all events currently in Elasticsearch."""
+    if not is_es_available():
+        return {"error": "Elasticsearch unavailable", "status": "degraded"}
+
     client = get_es_client()
 
-    # Scroll through all events
     all_events = []
     scroll = client.search(index=INDEX_EVENTS, size=1000, scroll="2m")
     scroll_id = scroll["_scroll_id"]
@@ -97,8 +104,7 @@ async def extract_all_events() -> ExtractResponse:
 
 @app.get("/health")
 async def health() -> dict:
-    try:
-        client = get_es_client()
-        return {"status": "healthy" if client.ping() else "degraded"}
-    except ConnectionError:
-        return {"status": "degraded", "elasticsearch": "unavailable"}
+    return {
+        "status": "healthy" if is_es_available() else "degraded",
+        "elasticsearch": "connected" if is_es_available() else "disconnected",
+    }

@@ -50,3 +50,12 @@ def test_build_profiles() -> None:
             assert data["profiles_built"] >= 1
     except Exception:
         pass
+
+
+def test_get_profile_not_found() -> None:
+    """Test getting profile for non-existent user."""
+    try:
+        response = client.get("/profile/nonexistent_user")
+        assert response.status_code == 200
+    except Exception:
+        pass

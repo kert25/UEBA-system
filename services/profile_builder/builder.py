@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pandas as pd
 
@@ -46,7 +46,7 @@ def build_profiles_from_features(features_df: pd.DataFrame) -> list[UserProfile]
             avg_bytes=round(bytes_vals.mean(), 2),
             std_bytes=round(bytes_vals.std() if len(bytes_vals) > 1 else 0.0, 2),
             top_countries=[c for c, _ in Counter(countries).most_common(5)],
-            last_updated=datetime.now(timezone.utc),
+            last_updated=datetime.now(UTC),
         )
         profiles.append(profile)
 

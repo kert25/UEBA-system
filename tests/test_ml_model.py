@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ml.model import AnomalyModel, FEATURE_COLUMNS
+from ml.model import AnomalyModel
 
 
 def _make_normal_df(n: int = 100) -> pd.DataFrame:

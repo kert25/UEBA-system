@@ -1,7 +1,5 @@
 """Tests for the log ingestor parser."""
 
-from datetime import datetime
-
 import pytest
 
 from services.log_ingestor.parser import parse_csv_events, parse_json_events

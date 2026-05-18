@@ -21,8 +21,16 @@ DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "synthetic_logs.js
 MODEL_OUTPUT = Path(__file__).resolve().parent.parent / "models" / "isolation_forest.joblib"
 
 ANOMALOUS_COUNTRIES = {
-    "United States", "China", "Brazil", "Australia", "Nigeria",
-    "North Korea", "Iran", "Germany", "United Kingdom", "Japan",
+    "United States",
+    "China",
+    "Brazil",
+    "Australia",
+    "Nigeria",
+    "North Korea",
+    "Iran",
+    "Germany",
+    "United Kingdom",
+    "Japan",
 }
 
 
@@ -31,15 +39,17 @@ def extract_features(events: list[dict]) -> pd.DataFrame:
     records = []
     for e in events:
         ts = datetime.fromisoformat(e["timestamp"])
-        records.append({
-            "event_id": e["event_id"],
-            "user_id": e["user_id"],
-            "hour_of_day": ts.hour,
-            "day_of_week": ts.weekday(),
-            "minutes_from_midnight": ts.hour * 60 + ts.minute,
-            "country_code": e["country"],
-            "bytes_transferred": e["bytes_transferred"],
-        })
+        records.append(
+            {
+                "event_id": e["event_id"],
+                "user_id": e["user_id"],
+                "hour_of_day": ts.hour,
+                "day_of_week": ts.weekday(),
+                "minutes_from_midnight": ts.hour * 60 + ts.minute,
+                "country_code": e["country"],
+                "bytes_transferred": e["bytes_transferred"],
+            }
+        )
     return pd.DataFrame(records)
 
 

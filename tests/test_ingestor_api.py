@@ -1,7 +1,5 @@
 """Integration tests for log ingestor FastAPI endpoints."""
 
-from datetime import datetime, timezone
-
 from fastapi.testclient import TestClient
 
 from services.log_ingestor.main import app

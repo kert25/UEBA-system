@@ -7,6 +7,7 @@ from datetime import datetime
 
 import pandas as pd
 
+from shared.geo_data import get_coordinates, haversine
 from shared.models import FeatureRecord
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,9 @@ def extract_features_from_events(events: list[dict]) -> list[FeatureRecord]:
       - minutes_from_midnight (0-1439)
       - country_code
       - bytes_transferred
+      - latitude, longitude (from country/city lookup)
+      - distance_from_previous_km (haversine distance)
+      - hours_since_last_event
 
     Args:
         events: List of raw event dicts from Elasticsearch.
@@ -30,17 +34,42 @@ def extract_features_from_events(events: list[dict]) -> list[FeatureRecord]:
     """
     records: list[FeatureRecord] = []
 
-    for event in events:
+    # Group events by user_id to compute distance/time since last event
+    user_last_event: dict[str, tuple[float, float, datetime]] = {}
+
+    # Sort events by timestamp to ensure correct ordering
+    sorted_events = sorted(events, key=lambda e: e.get("timestamp", ""))
+
+    for event in sorted_events:
         ts = datetime.fromisoformat(event["timestamp"].replace("Z", "+00:00"))
+        user_id = event["user_id"]
+        country = event.get("country", "Unknown")
+        city = event.get("city", "")
+
+        lat, lon = get_coordinates(country, city if city else None)
+
+        distance_km = None
+        hours_since = None
+
+        if user_id in user_last_event:
+            prev_lat, prev_lon, prev_ts = user_last_event[user_id]
+            distance_km = round(haversine(prev_lat, prev_lon, lat, lon), 2)
+            hours_since = round((ts - prev_ts).total_seconds() / 3600, 4)
+
+        user_last_event[user_id] = (lat, lon, ts)
 
         record = FeatureRecord(
             event_id=event["event_id"],
-            user_id=event["user_id"],
+            user_id=user_id,
             hour_of_day=ts.hour,
             day_of_week=ts.weekday(),
             minutes_from_midnight=ts.hour * 60 + ts.minute,
-            country_code=event.get("country", "Unknown"),
+            country_code=country,
             bytes_transferred=event.get("bytes_transferred", 0),
+            latitude=lat,
+            longitude=lon,
+            distance_from_previous_km=distance_km,
+            hours_since_last_event=hours_since,
         )
         records.append(record)
 
@@ -48,7 +77,9 @@ def extract_features_from_events(events: list[dict]) -> list[FeatureRecord]:
     return records
 
 
-def compute_deviation_features(df_features: pd.DataFrame, profiles: dict[str, dict]) -> pd.DataFrame:
+def compute_deviation_features(
+    df_features: pd.DataFrame, profiles: dict[str, dict]
+) -> pd.DataFrame:
     """Add deviation-from-mean features using user profiles.
 
     Args:
@@ -64,13 +95,20 @@ def compute_deviation_features(df_features: pd.DataFrame, profiles: dict[str, di
         profile = profiles.get(user, {})
 
         avg_hour = profile.get("avg_hour", row["hour_of_day"])
-        std_hour = max(profile.get("std_hour", 1), 1)  # avoid div by zero
+        std_hour = max(profile.get("std_hour", 1), 1)
 
-        deviations.append({
-            "hour_deviation": abs(row["hour_of_day"] - avg_hour) / std_hour,
-        })
+        avg_bytes = profile.get("avg_bytes", row["bytes_transferred"])
+        std_bytes = max(profile.get("std_bytes", 1), 1)
+
+        deviations.append(
+            {
+                "hour_deviation": abs(row["hour_of_day"] - avg_hour) / std_hour,
+                "bytes_deviation": abs(row["bytes_transferred"] - avg_bytes) / std_bytes,
+            }
+        )
 
     df_features["hour_deviation"] = [d["hour_deviation"] for d in deviations]
+    df_features["bytes_deviation"] = [d["bytes_deviation"] for d in deviations]
     return df_features
 
 
