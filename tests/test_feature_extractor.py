@@ -104,14 +104,26 @@ class TestComputeDeviationFeatures:
         """Test basic deviation features calculation."""
         from services.feature_extractor.extractor import compute_deviation_features
 
-        df = pd.DataFrame({
-            "user_id": ["user_001", "user_002"],
-            "hour_of_day": [14, 3],
-            "bytes_transferred": [10_000_000, 500_000_000],
-        })
+        df = pd.DataFrame(
+            {
+                "user_id": ["user_001", "user_002"],
+                "hour_of_day": [14, 3],
+                "bytes_transferred": [10_000_000, 500_000_000],
+            }
+        )
         profiles = {
-            "user_001": {"avg_hour": 12, "std_hour": 2, "avg_bytes": 5_000_000, "std_bytes": 2_000_000},
-            "user_002": {"avg_hour": 14, "std_hour": 1, "avg_bytes": 10_000_000, "std_bytes": 5_000_000},
+            "user_001": {
+                "avg_hour": 12,
+                "std_hour": 2,
+                "avg_bytes": 5_000_000,
+                "std_bytes": 2_000_000,
+            },
+            "user_002": {
+                "avg_hour": 14,
+                "std_hour": 1,
+                "avg_bytes": 10_000_000,
+                "std_bytes": 5_000_000,
+            },
         }
         result = compute_deviation_features(df, profiles)
         assert "hour_deviation" in result.columns
@@ -123,11 +135,13 @@ class TestComputeDeviationFeatures:
         """Test fallback when no profile exists."""
         from services.feature_extractor.extractor import compute_deviation_features
 
-        df = pd.DataFrame({
-            "user_id": ["no_such_user"],
-            "hour_of_day": [10],
-            "bytes_transferred": [1_000_000],
-        })
+        df = pd.DataFrame(
+            {
+                "user_id": ["no_such_user"],
+                "hour_of_day": [10],
+                "bytes_transferred": [1_000_000],
+            }
+        )
         result = compute_deviation_features(df, {})
         assert result["hour_deviation"].iloc[0] == 0.0
         assert result["bytes_deviation"].iloc[0] == 0.0

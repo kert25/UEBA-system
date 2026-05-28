@@ -15,15 +15,17 @@ from services.anomaly_detector.detector import (
 
 
 def _make_test_df() -> pd.DataFrame:
-    return pd.DataFrame({
-        "event_id": ["evt-001"],
-        "user_id": ["user_001"],
-        "hour_of_day": [14],
-        "day_of_week": [1],
-        "minutes_from_midnight": [840],
-        "country_code": ["Russia"],
-        "bytes_transferred": [10_000_000],
-    })
+    return pd.DataFrame(
+        {
+            "event_id": ["evt-001"],
+            "user_id": ["user_001"],
+            "hour_of_day": [14],
+            "day_of_week": [1],
+            "minutes_from_midnight": [840],
+            "country_code": ["Russia"],
+            "bytes_transferred": [10_000_000],
+        }
+    )
 
 
 class TestLoadModel:
@@ -43,6 +45,7 @@ class TestLoadModel:
         model.train(df)
 
         import tempfile
+
         with tempfile.NamedTemporaryFile(suffix=".joblib", delete=False) as f:
             model.save(f.name)
 
@@ -83,12 +86,14 @@ class TestComputeFeatureContributions:
         model = MagicMock()
         model.get_feature_contributions.side_effect = Exception("Error")
 
-        row = pd.Series({
-            "hour_of_day": 14,
-            "day_of_week": 1,
-            "minutes_from_midnight": 840,
-            "bytes_transferred": 10_000_000,
-        })
+        row = pd.Series(
+            {
+                "hour_of_day": 14,
+                "day_of_week": 1,
+                "minutes_from_midnight": 840,
+                "bytes_transferred": 10_000_000,
+            }
+        )
         contributions, top_features = _compute_feature_contributions(model, row)
         assert len(contributions) == 4
         assert len(top_features) == 3
@@ -104,12 +109,14 @@ class TestComputeFeatureContributions:
             "bytes_transferred": 0.1,
         }
 
-        row = pd.Series({
-            "hour_of_day": 3,
-            "day_of_week": 6,
-            "minutes_from_midnight": 180,
-            "bytes_transferred": 500_000_000,
-        })
+        row = pd.Series(
+            {
+                "hour_of_day": 3,
+                "day_of_week": 6,
+                "minutes_from_midnight": 180,
+                "bytes_transferred": 500_000_000,
+            }
+        )
         contributions, top_features = _compute_feature_contributions(model, row)
         assert contributions["hour_of_day"] == 0.5
         assert top_features[0] == "hour_of_day"
@@ -131,15 +138,17 @@ class TestDetectAnomalies:
         from services.anomaly_detector.detector import detect_anomalies
 
         model = self._make_model()
-        df = pd.DataFrame({
-            "event_id": ["evt-001"],
-            "user_id": ["user_001"],
-            "hour_of_day": [14],
-            "day_of_week": [1],
-            "minutes_from_midnight": [840],
-            "country_code": ["Russia"],
-            "bytes_transferred": [10_000_000],
-        })
+        df = pd.DataFrame(
+            {
+                "event_id": ["evt-001"],
+                "user_id": ["user_001"],
+                "hour_of_day": [14],
+                "day_of_week": [1],
+                "minutes_from_midnight": [840],
+                "country_code": ["Russia"],
+                "bytes_transferred": [10_000_000],
+            }
+        )
         result = detect_anomalies(df, model=model, threshold=0.99)
         assert len(result) == 0
 
@@ -148,17 +157,19 @@ class TestDetectAnomalies:
         from services.anomaly_detector.detector import detect_anomalies
 
         model = self._make_model()
-        df = pd.DataFrame({
-            "event_id": ["evt-impossible"],
-            "user_id": ["user_001"],
-            "hour_of_day": [14],
-            "day_of_week": [1],
-            "minutes_from_midnight": [840],
-            "country_code": ["Russia"],
-            "bytes_transferred": [10_000_000],
-            "distance_from_previous_km": [7500],
-            "hours_since_last_event": [0.5],
-        })
+        df = pd.DataFrame(
+            {
+                "event_id": ["evt-impossible"],
+                "user_id": ["user_001"],
+                "hour_of_day": [14],
+                "day_of_week": [1],
+                "minutes_from_midnight": [840],
+                "country_code": ["Russia"],
+                "bytes_transferred": [10_000_000],
+                "distance_from_previous_km": [7500],
+                "hours_since_last_event": [0.5],
+            }
+        )
         with patch("services.anomaly_detector.detector._load_user_profile", return_value=None):
             result = detect_anomalies(df, model=model, threshold=0.99)
             assert len(result) >= 1

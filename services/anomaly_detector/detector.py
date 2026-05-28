@@ -140,7 +140,7 @@ def detect_anomalies(
     scores = model.predict(features_df)
 
     anomalies: list[AnomalyRecord] = []
-    for idx, (score, (_, row)) in enumerate(zip(scores, features_df.iterrows())):
+    for idx, (score, (_, row)) in enumerate(zip(scores, features_df.iterrows(), strict=False)):
         is_anomaly = score > threshold
         is_impossible = _check_impossible_travel(row)
 
@@ -151,7 +151,9 @@ def detect_anomalies(
             dimensions = _classify_anomaly_dimensions(row, score, profile)
             contributions, top_features = _compute_feature_contributions(model, row)
 
-            final_score = max(float(score), 0.8) if is_impossible and not is_anomaly else float(score)
+            final_score = (
+                max(float(score), 0.8) if is_impossible and not is_anomaly else float(score)
+            )
 
             anomaly = AnomalyRecord(
                 event_id=row.get("event_id", f"unknown_{idx}"),

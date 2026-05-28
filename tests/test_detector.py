@@ -106,6 +106,7 @@ class TestClassifyAnomalyDimensions:
             }
         )
         from shared.models import UserProfile
+
         profile = UserProfile(
             user_id="user_001",
             avg_hour=14.0,
@@ -126,6 +127,7 @@ class TestClassifyAnomalyDimensions:
             }
         )
         from shared.models import UserProfile
+
         profile = UserProfile(
             user_id="user_001",
             avg_hour=14.0,
@@ -146,6 +148,7 @@ class TestClassifyAnomalyDimensions:
             }
         )
         from shared.models import UserProfile
+
         profile = UserProfile(
             user_id="user_001",
             avg_hour=14.0,
@@ -167,6 +170,7 @@ class TestClassifyAnomalyDimensions:
             }
         )
         from shared.models import UserProfile
+
         profile = UserProfile(
             user_id="user_001",
             avg_hour=14.0,

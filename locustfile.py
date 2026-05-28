@@ -17,8 +17,16 @@ from locust import HttpUser, between, task
 
 USERS = [f"user_{i:03d}" for i in range(100)]
 COUNTRIES = [
-    "Russia", "United States", "Germany", "United Kingdom",
-    "China", "Japan", "France", "Brazil", "Australia", "India",
+    "Russia",
+    "United States",
+    "Germany",
+    "United Kingdom",
+    "China",
+    "Japan",
+    "France",
+    "Brazil",
+    "Australia",
+    "India",
 ]
 ACTIONS = ["login", "download", "upload", "access", "delete", "modify"]
 
@@ -27,9 +35,13 @@ def _generate_event() -> dict:
     """Generate a single synthetic event."""
     return {
         "event_id": str(uuid4()),
-        "timestamp": (datetime.utcnow() - timedelta(seconds=random.randint(0, 3600))).isoformat() + "Z",
+        "timestamp": (datetime.utcnow() - timedelta(seconds=random.randint(0, 3600))).isoformat()
+        + "Z",
         "user_id": random.choice(USERS),
-        "ip_address": f"{random.randint(10, 200)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 254)}",
+        "ip_address": (
+            f"{random.randint(10, 200)}.{random.randint(0, 255)}"
+            f".{random.randint(0, 255)}.{random.randint(1, 254)}"
+        ),
         "country": random.choice(COUNTRIES),
         "city": "TestCity",
         "bytes_transferred": random.randint(1_000, 500_000_000),

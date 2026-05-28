@@ -58,7 +58,6 @@ class TestBuildProfiles:
 
     def test_top_countries(self) -> None:
         """Test top countries list."""
-        users = ["user_001"] * 5 + ["user_001"] * 3
         records = []
         countries = ["Russia"] * 5 + ["Belarus"] * 3
         for i, country in enumerate(countries):
