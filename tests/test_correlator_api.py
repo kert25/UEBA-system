@@ -31,3 +31,15 @@ def test_incidents_empty() -> None:
     """Test getting incidents when none exist."""
     response = client.get("/incidents")
     assert response.status_code == 200
+    data = response.json()
+    assert "incidents" in data
+
+
+def test_health_includes_all_fields() -> None:
+    """Test health endpoint has all required fields."""
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["service"] == "correlator"
+    assert data["status"] in ("healthy", "degraded")
+    assert data["elasticsearch"] in ("connected", "disconnected")

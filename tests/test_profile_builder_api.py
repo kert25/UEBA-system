@@ -8,9 +8,15 @@ client = TestClient(app)
 
 
 def test_health() -> None:
-    """Test health endpoint."""
+    """Test health endpoint with scheduler fields."""
     response = client.get("/health")
     assert response.status_code == 200
+    data = response.json()
+    assert "service" in data
+    assert "scheduler" in data
+    assert data["scheduler"] in ("running", "stopped")
+    assert "rebuild_interval_minutes" in data
+    assert isinstance(data["rebuild_interval_minutes"], int)
 
 
 def test_build_empty() -> None:

@@ -8,6 +8,8 @@ from services.alerting.alerter import (
     _alert_history,
     mark_alert_sent,
     process_anomalies,
+    send_alert_email,
+    send_alert_telegram,
     should_send_alert,
 )
 from shared.models import AnomalyRecord
@@ -88,3 +90,28 @@ class TestDeduplication:
         a2 = _make_anomaly(0.9, dimensions=["volume"])
         mark_alert_sent(a1)
         assert should_send_alert(a2) is True
+
+
+class TestSendAlerts:
+    """Tests for alert sending functions."""
+
+    @pytest.mark.asyncio
+    async def test_send_email_no_credentials(self) -> None:
+        """Test email sending with no SMTP credentials."""
+        anomaly = _make_anomaly(0.9)
+        result = await send_alert_email(anomaly, email="")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_telegram_no_credentials(self) -> None:
+        """Test telegram sending with no token."""
+        anomaly = _make_anomaly(0.9)
+        result = await send_alert_telegram(anomaly, token="", chat_id="")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_telegram_no_chat_id(self) -> None:
+        """Test telegram sending with token but no chat_id."""
+        anomaly = _make_anomaly(0.9)
+        result = await send_alert_telegram(anomaly, token="fake_token", chat_id="")
+        assert result is False

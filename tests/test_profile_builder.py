@@ -79,8 +79,8 @@ class TestBuildProfiles:
 
     def test_missing_columns_raises(self) -> None:
         """Test that missing columns raise ValueError."""
-        bad_df = pd.DataFrame({"user_id": ["user_001"]})
-        from pytest import raises
+        import pytest
 
-        with raises(ValueError, match="Missing columns"):
+        bad_df = pd.DataFrame({"user_id": ["user_001"]})
+        with pytest.raises(ValueError, match="Missing columns"):
             build_profiles_from_features(bad_df)

@@ -42,3 +42,30 @@ def test_detect_anomalies() -> None:
     except Exception:
         # Model may not be loaded without ES
         pass
+
+
+def test_detect_returns_warning_without_es() -> None:
+    """Test that detection returns warning when ES is unavailable."""
+    features = [
+        {
+            "event_id": "evt-001",
+            "user_id": "user_001",
+            "hour_of_day": 14,
+            "day_of_week": 1,
+            "minutes_from_midnight": 840,
+            "country_code": "Russia",
+            "bytes_transferred": 10_000_000,
+        },
+    ]
+    response = client.post("/detect", json=features)
+    if response.status_code == 200:
+        data = response.json()
+        assert "anomalies_detected" in data
+
+
+def test_health_includes_es_status() -> None:
+    """Test health endpoint includes ES status."""
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert "status" in data
