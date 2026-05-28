@@ -1,4 +1,4 @@
-"""ML module for anomaly detection using Isolation Forest."""
+"""ML module for anomaly detection using Isolation Forest and One-Class SVM."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+from sklearn.svm import OneClassSVM
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,140 @@ FEATURE_COLUMNS = [
     "minutes_from_midnight",
     "bytes_transferred",
 ]
+
+
+class OCSVMModel:
+    """Wrapper around scikit-learn One-Class SVM for UEBA anomaly detection.
+
+    Provides the same interface as AnomalyModel so both can be used
+    interchangeably for model comparison.
+
+    Usage::
+
+        model = OCSVMModel()
+        model.train(df_normal)
+        scores = model.predict(df_test)
+    """
+
+    def __init__(
+        self,
+        nu: float = 0.05,
+        kernel: str = "rbf",
+        gamma: str = "auto",
+        random_state: int = 42,
+    ) -> None:
+        self.nu = nu
+        self.kernel = kernel
+        self.gamma = gamma
+        self.random_state = random_state
+
+        self.scaler = StandardScaler()
+        self.model = OneClassSVM(
+            nu=self.nu,
+            kernel=self.kernel,
+            gamma=self.gamma,
+        )
+        self._is_fitted = False
+
+    def train(self, df: pd.DataFrame) -> None:
+        """Fit the scaler and train One-Class SVM on normal data only."""
+        X = self._extract_features(df)
+        X_scaled = self.scaler.fit_transform(X)
+        self.model.fit(X_scaled)
+        self._is_fitted = True
+        logger.info(
+            "OCSVM model trained on %d samples with %d features",
+            len(df),
+            len(FEATURE_COLUMNS),
+        )
+
+    def predict(self, df: pd.DataFrame) -> np.ndarray:
+        """Return anomaly scores in [0, 1]; higher = more anomalous.
+
+        One-Class SVM decision_function: positive = normal, negative = anomalous.
+        We negate and normalize to [0, 1] so 1 = most anomalous.
+        """
+        if not self._is_fitted:
+            raise RuntimeError("Model must be trained before prediction. Call .train() first.")
+
+        X = self._extract_features(df)
+        X_scaled = self.scaler.transform(X)
+        raw_scores = self.model.decision_function(X_scaled)
+        scores = -raw_scores
+        scores = (scores - scores.min()) / (scores.max() - scores.min() + 1e-8)
+        return scores
+
+    def predict_labels(self, df: pd.DataFrame) -> np.ndarray:
+        """Return binary labels: 1 = anomaly, 0 = normal."""
+        if not self._is_fitted:
+            raise RuntimeError("Model must be trained before prediction.")
+
+        X = self._extract_features(df)
+        X_scaled = self.scaler.transform(X)
+        labels = self.model.predict(X_scaled)
+        return (labels == -1).astype(int)
+
+    def save(self, path: str | Path) -> None:
+        """Serialize model, scaler, and config to disk."""
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(
+            {
+                "model": self.model,
+                "scaler": self.scaler,
+                "is_fitted": self._is_fitted,
+                "nu": self.nu,
+                "kernel": self.kernel,
+                "gamma": self.gamma,
+            },
+            path,
+        )
+        logger.info("OCSVM model saved to %s", path)
+
+    @classmethod
+    def load(cls, path: str | Path) -> OCSVMModel:
+        """Deserialize a previously saved OCSVM model."""
+        data = joblib.load(path)
+        instance = cls(
+            nu=data["nu"],
+            kernel=data["kernel"],
+            gamma=data["gamma"],
+        )
+        instance.model = data["model"]
+        instance.scaler = data["scaler"]
+        instance._is_fitted = data["is_fitted"]
+        logger.info("OCSVM model loaded from %s", path)
+        return instance
+
+    @staticmethod
+    def _extract_features(df: pd.DataFrame) -> pd.DataFrame:
+        """Extract only the feature columns needed for ML."""
+        missing = [c for c in FEATURE_COLUMNS if c not in df.columns]
+        if missing:
+            raise ValueError(f"Missing feature columns: {missing}")
+        return df[FEATURE_COLUMNS]
+
+    def get_feature_contributions(self, features_array: np.ndarray) -> dict[str, float]:
+        """Permutation-based feature contributions for OCSVM."""
+        if self.model is None or not self._is_fitted:
+            return {}
+
+        base_score = self.model.score_samples(features_array.reshape(1, -1))[0]
+        baseline = np.mean(self.scaler.mean_) if hasattr(self.scaler, "mean_") else 0.0
+
+        contributions = {}
+        for i, name in enumerate(FEATURE_COLUMNS):
+            perturbed = features_array.copy()
+            perturbed[i] = baseline
+            perturbed_score = self.model.score_samples(perturbed.reshape(1, -1))[0]
+            contributions[name] = abs(perturbed_score - base_score)
+
+        total = sum(contributions.values())
+        if total > 0:
+            contributions = {k: round(v / total, 3) for k, v in contributions.items()}
+        else:
+            contributions = {k: round(1.0 / len(FEATURE_COLUMNS), 3) for k in FEATURE_COLUMNS}
+
+        return contributions
 
 
 class AnomalyModel:
@@ -154,7 +289,7 @@ class AnomalyModel:
     def get_feature_contributions(self, features_array: np.ndarray) -> dict[str, float]:
         """Estimate each feature's contribution to the anomaly score.
 
-        Uses a permutation-based approach: replace each feature with its median
+        Uses a permutation-based approach: replace each feature with a baseline
         value and measure the change in score.
 
         Args:
@@ -163,23 +298,23 @@ class AnomalyModel:
         Returns:
             Dict mapping feature name to normalized contribution (sum ≈ 1.0).
         """
-        if self.model is None:
+        if self.model is None or not self._is_fitted:
             return {}
 
         base_score = self.model.score_samples(features_array.reshape(1, -1))[0]
+        baseline = np.mean(self.scaler.mean_) if hasattr(self.scaler, "mean_") else 0.0
 
         contributions = {}
         for i, name in enumerate(FEATURE_COLUMNS):
             perturbed = features_array.copy()
-            median_val = np.median(
-                self.scaler.data_min_ if hasattr(self.scaler, "data_min_") else 0
-            )
-            perturbed[i] = median_val
+            perturbed[i] = baseline
             perturbed_score = self.model.score_samples(perturbed.reshape(1, -1))[0]
             contributions[name] = abs(perturbed_score - base_score)
 
         total = sum(contributions.values())
         if total > 0:
             contributions = {k: round(v / total, 3) for k, v in contributions.items()}
+        else:
+            contributions = {k: round(1.0 / len(FEATURE_COLUMNS), 3) for k in FEATURE_COLUMNS}
 
         return contributions
