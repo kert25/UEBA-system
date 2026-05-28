@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      elasticsearch:
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+        env:
+          discovery.type: single-node
+          xpack.security.enabled: false
+          ES_JAVA_OPTS: -Xms512m -Xmx512m
+        ports:
+          - 9200:9200
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        run: ruff check .
+
+      - name: SAST with bandit
+        run: bandit -r . -x .venv,tests,.github 2>&1 | tail -20
+
+      - name: Safety check
+        run: safety check --bare 2>&1 | tail -20
+
+      - name: Test with pytest and coverage
+        env:
+          ELASTICSEARCH_HOST: localhost
+          ELASTICSEARCH_PORT: "9200"
+        run: pytest --cov=services --cov=ml --cov=shared --cov-report=term-missing
+
+      - name: Train model and compare
+        run: |
+          python scripts/generate_synthetic_logs.py
+          python scripts/train_model.py
+          python scripts/compare_models.py
