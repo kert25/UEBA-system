@@ -50,11 +50,13 @@
 ## Технологический стек
 
 - **Python 3.12+**, **FastAPI**, **Uvicorn**
-- **pandas**, **NumPy**, **scikit-learn** (Isolation Forest)
+- **pandas**, **NumPy**, **scikit-learn** (Isolation Forest + One-Class SVM)
 - **Elasticsearch 8.x** + **Kibana 8.x** (ELK)
 - **Docker** + **Docker Compose**
 - **aiosmtplib** (email), **httpx** (Telegram API)
-- **pytest** (покрытие ≥65%), **Bandit**, **safety**, **ruff**
+- **pytest** (покрытие ≥70%), **Bandit**, **safety**, **ruff**
+- **GitHub Actions** (CI/CD), **Locust** (нагрузочное тестирование)
+- **APScheduler** (автообновление профилей)
 
 ## Быстрый старт
 
@@ -184,7 +186,37 @@ Swagger UI доступен по адресу `http://localhost:PORT/docs` дл�
 pytest --cov=services --cov=ml --cov=shared --cov-report=term-missing
 ```
 
-Текущее покрытие: **≥66%** (требование ≥65%).
+Текущее покрытие: **≥71%** (требование ≥70%).
+
+### Сравнение моделей
+
+```bash
+python scripts/compare_models.py
+```
+
+Результаты (на 10 000 синтетических событий):
+
+| Метрика | Isolation Forest | One-Class SVM |
+|---|---|---|
+| Precision | 0.8922 | 1.0000 |
+| Recall | 0.9334 | 0.8089 |
+| F1 | 0.9123 | 0.8943 |
+| Training time | 0.11s | 0.04s |
+| Inference time | 0.04s | 0.05s |
+
+### Нагрузочное тестирование
+
+```bash
+# Запуск системы
+docker compose up -d
+
+# Загрузка данных в ES
+python scripts/generate_synthetic_logs.py
+# ... ингестия данных ...
+
+# Запуск Locust
+bash scripts/run_load_test.sh
+```
 
 ## Безопасность
 
