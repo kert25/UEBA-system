@@ -8,7 +8,6 @@ from services.alerting.alerter import (
     _alert_history,
     mark_alert_sent,
     process_anomalies,
-    send_alert_email,
     send_alert_telegram,
     should_send_alert,
 )
@@ -94,13 +93,6 @@ class TestDeduplication:
 
 class TestSendAlerts:
     """Tests for alert sending functions."""
-
-    @pytest.mark.asyncio
-    async def test_send_email_no_credentials(self) -> None:
-        """Test email sending with no SMTP credentials."""
-        anomaly = _make_anomaly(0.9)
-        result = await send_alert_email(anomaly, email="")
-        assert result is False
 
     @pytest.mark.asyncio
     async def test_send_telegram_no_credentials(self) -> None:

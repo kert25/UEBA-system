@@ -164,16 +164,10 @@ async def process_anomaly_endpoint(anomalies: list[dict]) -> ProcessResponse:
     critical = process_anomalies(records, threshold=settings.alert_threshold)
 
     for anomaly in critical:
-        if settings.alert_email:
-            from services.alerting.alerter import send_alert_email
-
-            await send_alert_email(anomaly, settings.alert_email)
         if settings.alert_telegram_token and settings.alert_telegram_chat_id:
             from services.alerting.alerter import send_alert_telegram
 
-            token = settings.alert_telegram_token
-            chat = settings.alert_telegram_chat_id
-            await send_alert_telegram(anomaly, token, chat)
+            await send_alert_telegram(anomaly, settings.alert_telegram_token, settings.alert_telegram_chat_id)
 
     return ProcessResponse(alerted=len(critical))
 

@@ -24,7 +24,6 @@ class Settings(BaseSettings):
 
     # Alerting
     alert_threshold: float = 0.7
-    alert_email: str = ""
     alert_telegram_token: str = ""
     alert_telegram_chat_id: str = ""
 

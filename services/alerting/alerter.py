@@ -71,78 +71,33 @@ def process_anomalies(
     return alerted
 
 
-async def send_alert_email(anomaly: AnomalyRecord, email: str) -> bool:
-    """Send alert via email using aiosmtplib."""
-    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.getenv("SMTP_PORT", "587"))
-    username = os.getenv("SMTP_USERNAME", "")
-    password = os.getenv("SMTP_PASSWORD", "")
-
-    if not username or not password or not email:
-        logger.warning("Email credentials not configured, skipping email alert")
-        return False
-
-    subject = f"[UEBA] ANOMALY — user={anomaly.user_id}, score={anomaly.anomaly_score:.4f}"
-    body = (
-        f"UEBA Alert\n\n"
-        f"User: {anomaly.user_id}\n"
-        f"Score: {anomaly.anomaly_score:.4f}\n"
-        f"Dimensions: {', '.join(anomaly.dimensions)}\n"
-        f"Time: {anomaly.timestamp.isoformat()}\n"
-        f"Details: {anomaly.details}\n"
-        f"Top features: {', '.join(anomaly.top_features)}"
-    )
-
-    try:
-        from email.message import EmailMessage
-
-        import aiosmtplib
-
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = username
-        msg["To"] = email
-        msg.set_content(body)
-
-        await aiosmtplib.send(
-            msg,
-            hostname=smtp_host,
-            port=smtp_port,
-            username=username,
-            password=password,
-            start_tls=True,
-        )
-        logger.info("Email alert sent to %s", email)
-        return True
-    except ImportError:
-        logger.warning("aiosmtplib not installed, email alert skipped")
-        return False
-    except Exception as e:
-        logger.error("Failed to send email alert: %s", e)
-        return False
-
-
 async def send_alert_telegram(anomaly: AnomalyRecord, token: str, chat_id: str) -> bool:
     """Send alert via Telegram Bot API."""
     if not token or not chat_id:
         logger.warning("Telegram credentials not configured, skipping Telegram alert")
         return False
 
+    score_pct = anomaly.anomaly_score * 100
+    time_str = anomaly.timestamp.strftime("%d %b %Y, %H:%M:%S")
+
     text = (
-        f"🚨 *UEBA Alert*\n\n"
-        f"*User:* {anomaly.user_id}\n"
-        f"*Score:* {anomaly.anomaly_score:.4f}\n"
-        f"*Dimensions:* {', '.join(anomaly.dimensions)}\n"
-        f"*Time:* {anomaly.timestamp.isoformat()}\n"
-        f"*Details:* {anomaly.details}\n"
-        f"*Top features:* {', '.join(anomaly.top_features)}"
+        f"🚨 <b>UEBA Alert</b>\n\n"
+        f"<b>User:</b> {anomaly.user_id}\n"
+        f"<b>Anomaly score:</b> {anomaly.anomaly_score:.4f} ({score_pct:.1f}%) — "
+        f"степень отклонения от нормального поведения. "
+        f"0% = норма, 100% = критическая аномалия. Порог оповещения: 70%.\n"
+        f"<b>Triggered dimensions:</b> {', '.join(anomaly.dimensions)}\n"
+        f"<b>Time:</b> {time_str}\n"
+        f"<b>Details:</b> {anomaly.details}\n"
+        f"<b>Top features:</b> {', '.join(anomaly.top_features)} — "
+        f"признаки, которые внесли наибольший вклад в детекцию аномалии"
     )
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     payload = {
         "chat_id": chat_id,
         "text": text,
-        "parse_mode": "Markdown",
+        "parse_mode": "HTML",
     }
 
     try:
